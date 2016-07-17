@@ -5,6 +5,7 @@ import json
 import argparse
 import pokemon_pb2
 import time
+import Queue
 
 from google.protobuf.internal import encoder
 
@@ -48,6 +49,9 @@ COORDS_LONGITUDE = 0
 COORDS_ALTITUDE = 0
 FLOAT_LAT = 0
 FLOAT_LONG = 0
+
+
+
 
 def f2i(float):
   return struct.unpack('<Q', struct.pack('<d', float))[0]
@@ -115,7 +119,7 @@ def api_req(api_endpoint, access_token, *mehs, **kw):
             print(p_ret)
             print("\n\n")
 
-        print("Sleeping for 2 seconds to get around rate-limit.")
+        # print("Sleeping for 2 seconds to get around rate-limit.")
         time.sleep(2)
         return p_ret
     except Exception, e:
@@ -215,6 +219,7 @@ def heartbeat(api_endpoint, access_token, response):
     m.lat = COORDS_LATITUDE
     m.long = COORDS_LONGITUDE
     m1.message = m.SerializeToString()
+
     response = get_profile(
         access_token,
         api_endpoint,
@@ -230,6 +235,7 @@ def heartbeat(api_endpoint, access_token, response):
     return heartbeat
 
 def main():
+    pokeQueue = Queue.PriorityQueue()
     pokemons = json.load(open('pokemon.json'))
     parser = argparse.ArgumentParser()
     parser.add_argument("-u", "--username", help="PTC Username", required=True)
@@ -250,7 +256,7 @@ def main():
     if access_token is None:
         print('[-] Wrong username/password')
         return
-    print('[+] RPC Session Token: {} ...'.format(access_token[:25]))
+    print('[+] RPC Session Token: {}'.format(access_token))
 
     api_endpoint = get_api_endpoint(access_token)
     if api_endpoint is None:
@@ -259,7 +265,7 @@ def main():
     print('[+] Received API endpoint: {}'.format(api_endpoint))
 
     response = get_profile(access_token, api_endpoint, None)
-    if response is not None:
+    if response is not None and len(response.payload) > 0:
         print('[+] Login successful')
 
         payload = response.payload[0]
@@ -304,6 +310,10 @@ def main():
 
         print('')
         for cell in h.cells:
+            # if cell.Fort:
+            #         for f in cell.Fort:
+            #             print(f)
+
             if cell.NearbyPokemon:
                 other = LatLng.from_point(Cell(CellId(cell.S2CellId)).get_center())
                 diff = other - origin
@@ -311,26 +321,42 @@ def main():
                 difflat = diff.lat().degrees
                 difflng = diff.lng().degrees
                 direction = (('N' if difflat >= 0 else 'S') if abs(difflat) > 1e-4 else '')  + (('E' if difflng >= 0 else 'W') if abs(difflng) > 1e-4 else '')
-                print("Within one step of %s (%sm %s from you):" % (other, int(origin.get_distance(other).radians * 6366468.241830914), direction))
+                # print("Within one step of %s (%sm %s from you):" % (other, int(origin.get_distance(other).radians * 6366468.241830914), direction))
                 for poke in cell.NearbyPokemon:
-                    print('    (%s) %s' % (poke.PokedexNumber, pokemons[poke.PokedexNumber - 1]['Name']))
+                    pass
+                    # print('    (%s) %s' % (poke.PokedexNumber, pokemons[poke.PokedexNumber - 1]['Name']))
 
-        print('')
+        # print('')
         for poke in visible:
-            other = LatLng.from_degrees(poke.Latitude, poke.Longitude)
-            diff = other - origin
-            # print(diff)
-            difflat = diff.lat().degrees
-            difflng = diff.lng().degrees
-            direction = (('N' if difflat >= 0 else 'S') if abs(difflat) > 1e-4 else '')  + (('E' if difflng >= 0 else 'W') if abs(difflng) > 1e-4 else '')
+            timeHidden = poke.TimeTillHiddenMs / 1000.0 + time.time()
+            pokeQueue.put((timeHidden, poke))
 
-            print("(%s) %s is visible at (%s, %s) for %s seconds (%sm %s from you)" % (poke.pokemon.PokemonId, pokemons[poke.pokemon.PokemonId - 1]['Name'], poke.Latitude, poke.Longitude, poke.TimeTillHiddenMs / 1000, int(origin.get_distance(other).radians * 6366468.241830914), direction))
+        pokeLocList = []
+        pokeSeen = []
+        while not pokeQueue.empty():
+            pokeLoc = pokeQueue.get()
+            if pokeLoc[0] > time.time():
+                poke = pokeLoc[1]
+                if (poke.pokemon.PokemonId, poke.Latitude, poke.Longitude) not in pokeSeen:
+                    pokeLocList.append(pokeLoc)
+                    other = LatLng.from_degrees(poke.Latitude, poke.Longitude)
+                    diff = other - origin
+                    # print(diff)
+                    difflat = diff.lat().degrees
+                    difflng = diff.lng().degrees
+                    direction = (('N' if difflat >= 0 else 'S') if abs(difflat) > 1e-4 else '')  + (('E' if difflng >= 0 else 'W') if abs(difflng) > 1e-4 else '')
 
-        print('')
+                    print("(%s) %s is visible at (%s, %s) for %s seconds (%sm %s from you)" % (poke.pokemon.PokemonId, pokemons[poke.pokemon.PokemonId - 1]['Name'], poke.Latitude, poke.Longitude, int(pokeLoc[0]-time.time()), int(origin.get_distance(other).radians * 6366468.241830914), direction))
+                pokeSeen.append((poke.pokemon.PokemonId, poke.Latitude, poke.Longitude))
+
+        for pokeLoc in pokeLocList:
+            pokeQueue.put(pokeLoc)
+        # print pokeQueue    
+        # print('')
         walk = getNeighbors()
         next = LatLng.from_point(Cell(CellId(walk[2])).get_center())
-        if raw_input('The next cell is located at %s. Keep scanning? [Y/n]' % next) in {'n', 'N'}:
-            break
+        # if raw_input('The next cell is located at %s. Keep scanning? [Y/n]' % next) in {'n', 'N'}:
+        #     break
         set_location_coords(next.lat().degrees, next.lng().degrees, 0)
 
 if __name__ == '__main__':
