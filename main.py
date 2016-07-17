@@ -6,6 +6,7 @@ import argparse
 import pokemon_pb2
 import time
 import Queue
+import os
 
 from google.protobuf.internal import encoder
 
@@ -33,6 +34,8 @@ def getNeighbors():
         prev = prev.prev()
     return walk
 
+def cls():
+    os.system('cls' if os.name=='nt' else 'clear')
 
 
 API_URL = 'https://pgorelease.nianticlabs.com/plfe/rpc'
@@ -333,6 +336,7 @@ def main():
 
         pokeLocList = []
         pokeSeen = []
+        cls()
         while not pokeQueue.empty():
             pokeLoc = pokeQueue.get()
             if pokeLoc[0] > time.time():
