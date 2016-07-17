@@ -336,9 +336,18 @@ def main():
 
         pokeLocList = []
         pokeSeen = []
+        pokeSort = []
         cls()
         while not pokeQueue.empty():
             pokeLoc = pokeQueue.get()
+            poke = pokeLoc[1]
+            other = LatLng.from_degrees(poke.Latitude, poke.Longitude)
+            dist = int(origin.get_distance(other).radians * 6366468.241830914)
+            pokeSort.append((dist, pokeLoc))
+
+        pokeSort.sort()
+        for pokeSortItem in pokeSort:
+            pokeLoc = pokeSortItem[1]
             if pokeLoc[0] > time.time():
                 poke = pokeLoc[1]
                 if (poke.pokemon.PokemonId, poke.Latitude, poke.Longitude) not in pokeSeen:
