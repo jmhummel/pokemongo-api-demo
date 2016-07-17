@@ -337,6 +337,7 @@ def main():
         pokeLocList = []
         pokeSeen = []
         pokeSort = []
+        print ''
         cls()
         while not pokeQueue.empty():
             pokeLoc = pokeQueue.get()
@@ -359,7 +360,8 @@ def main():
                     difflng = diff.lng().degrees
                     direction = (('N' if difflat >= 0 else 'S') if abs(difflat) > 1e-4 else '')  + (('E' if difflng >= 0 else 'W') if abs(difflng) > 1e-4 else '')
 
-                    print("(%s) %s is visible at (%s, %s) for %s seconds (%sm %s from you)" % (poke.pokemon.PokemonId, pokemons[poke.pokemon.PokemonId - 1]['Name'], poke.Latitude, poke.Longitude, int(pokeLoc[0]-time.time()), int(origin.get_distance(other).radians * 6366468.241830914), direction))
+                    #print("(%s) %s is visible at (%s, %s) for %s seconds (%sm %s from you)" % (poke.pokemon.PokemonId, pokemons[poke.pokemon.PokemonId - 1]['Name'], poke.Latitude, poke.Longitude, int(pokeLoc[0]-time.time()), int(origin.get_distance(other).radians * 6366468.241830914), direction))
+                    print "%s, %s{%s}" % (poke.Latitude, poke.Longitude, (pokemons[poke.pokemon.PokemonId - 1]['Name']))
                 pokeSeen.append((poke.pokemon.PokemonId, poke.Latitude, poke.Longitude))
 
         for pokeLoc in pokeLocList:
